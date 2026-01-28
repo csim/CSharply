@@ -41,14 +41,20 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
         if (textView is null)
             return;
 
+        // Save the current line number
+        int caretOffset = textView.Selection.InsertionPosition.Offset;
+
         // Get the current document content
         string fileContents = textView.Document.Text.CopyToString();
         if (string.IsNullOrEmpty(fileContents))
             return;
 
+        // Calculate line number from offset
+        int caretLine = fileContents[..Math.Min(caretOffset, fileContents.Length)].Count(c => c == '\n');
+
         // Call the CSharply server to organize
-        string? organizedContent = await CSharplyAdapter.Instance.OrganizeFileAsync(fileContents);
-        if (organizedContent is null)
+        string? organizedFileContents = await CSharplyAdapter.Instance.OrganizeFileAsync(fileContents);
+        if (organizedFileContents is null || fileContents == organizedFileContents)
             return;
 
         // Replace the entire document content
@@ -61,7 +67,21 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
                     ITextDocumentEditor editor = document.AsEditable(batch);
                     if (document.Length > 0)
                         editor.Delete(document.Text);
-                    editor.Insert(0, organizedContent);
+                    editor.Insert(0, organizedFileContents);
+
+                    // Restore cursor to start of the same line (clamped to document line count)
+                    int totalLines = organizedFileContents.Count(c => c == '\n') + 1;
+                    int targetLine = Math.Min(caretLine, totalLines - 1);
+                    int lineStartOffset = 0;
+                    for (int i = 0; i < targetLine; i++)
+                    {
+                        int nextNewline = organizedFileContents.IndexOf('\n', lineStartOffset);
+                        if (nextNewline < 0)
+                            break;
+                        lineStartOffset = nextNewline + 1;
+                    }
+                    TextPosition position = new(document, lineStartOffset);
+                    textView.AsEditable(batch).SetSelections([new Selection(new TextRange(position, position))]);
                 },
                 cancellationToken
             );

@@ -5,11 +5,9 @@ namespace CSharply;
 
 public class IgnoreFileService
 {
-    private readonly ConcurrentDictionary<string, IgnoreInfo> _globCache = new(
-        StringComparer.OrdinalIgnoreCase
-    );
-
-    public IgnoreFileService() { }
+   );
+ 
+  
 
     public bool Ignore(FileInfo file)
     {
@@ -68,4 +66,11 @@ public class IgnoreFileService
     }
 
     private sealed record IgnoreInfo(DirectoryInfo Directory, IReadOnlyList<string> Globs);
+
+    private readonly ConcurrentDictionary<string, IgnoreInfo> _globCache = new(
+   StringComparer.OrdinalIgnoreCase
+
+
+    public IgnoreFileService() { }
+
 }
