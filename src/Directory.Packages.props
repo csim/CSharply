@@ -1,5 +1,11 @@
 <Project>
     <ItemGroup>
+        <!-- VS Extensibility packages -->
+        <PackageVersion Include="Microsoft.VisualStudio.Extensibility.Sdk" Version="17.14.40608" />
+        <PackageVersion
+            Include="Microsoft.VisualStudio.Extensibility.Build"
+            Version="17.14.40608"
+        />
         <!-- Production packages -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
