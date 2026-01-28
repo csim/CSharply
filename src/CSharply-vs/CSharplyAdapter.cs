@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -19,10 +19,10 @@ public sealed class CSharplyAdapter : IDisposable
     private bool _disposed;
     private readonly HttpClient _httpClient = new();
     private bool _isInstalled;
+    private const uint _jOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
     private IntPtr _jobHandle;
     private int _serverPort;
     private Process? _serverProcess;
-    private const uint _jOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
 
     public static CSharplyAdapter Instance { get; } = new CSharplyAdapter();
 

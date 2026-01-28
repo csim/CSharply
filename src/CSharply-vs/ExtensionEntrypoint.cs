@@ -23,6 +23,14 @@ internal class ExtensionEntrypoint : Extension
         };
 
     /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        CSharplyAdapter.Instance.Dispose();
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
     protected override void InitializeServices(IServiceCollection serviceCollection)
     {
         base.InitializeServices(serviceCollection);
@@ -37,13 +45,5 @@ internal class ExtensionEntrypoint : Extension
         await base.OnInitializedAsync(extensibility, cancellationToken);
 
         await Task.Run(CSharplyAdapter.Instance.StartServer, cancellationToken);
-    }
-
-    /// <inheritdoc />
-    protected override void Dispose(bool disposing)
-    {
-        CSharplyAdapter.Instance.Dispose();
-
-        base.Dispose(disposing);
     }
 }
