@@ -213,6 +213,7 @@ jobs:
         run: |
           dotnet build src/CSharply-vs/CSharply.csproj `
             --configuration ${{ env.BUILD_CONFIG }} `
+            --no-restore `
             -p:Version=${{ needs.version.outputs.version }}${{ needs.version.outputs.suffix }} `
             -p:AssemblyVersion=${{ needs.version.outputs.version }} `
             -p:FileVersion=${{ needs.version.outputs.version }}
@@ -231,10 +232,8 @@ jobs:
 
       - name: Publish to Visual Studio Marketplace
         if: needs.version.outputs.is_release == 'true'
-        run: |
-          dotnet tool install -g Microsoft.VisualStudio.Vsix.Publish
-          VsixPublisher.exe publish `
-            -payload "artifacts/CSharply-v${{ needs.version.outputs.version }}.vsix" `
-            -publishManifest "src/CSharply-vs/publishManifest.json" `
-            -personalAccessToken "${{ secrets.VS_MARKETPLACE_PAT }}"
-        shell: pwsh
+        uses: cezarypiatek/VsixPublisherAction@v1
+        with:
+          extension-file: artifacts/CSharply-v${{ needs.version.outputs.version }}.vsix
+          publish-manifest-file: src/CSharply-vs/publishManifest.json
+          personal-access-code: ${{ secrets.VSCE_PAT }}
