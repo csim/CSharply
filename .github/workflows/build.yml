@@ -232,7 +232,7 @@ jobs:
 
       - name: Publish to Visual Studio Marketplace
         if: needs.version.outputs.is_release == 'true'
-        uses: cezarypiatek/VsixPublisherAction@v1
+        uses: cezarypiatek/VsixPublisherAction@1.1
         with:
           extension-file: artifacts/CSharply-v${{ needs.version.outputs.version }}.vsix
           publish-manifest-file: src/CSharply-vs/publishManifest.json

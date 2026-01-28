@@ -7,8 +7,6 @@ More information: [https://github.com/csim/CSharply](https://github.com/csim/CSh
 ## Features
 
 - **Organize File**: Organize the currently active C# file.
- 
-- **Organize Folder**: Organize all C# files in the current workspace folders.
 
 ## Requirements
 
@@ -24,12 +22,7 @@ To manually install run: `dotnet tool install csharply --global`
 2. Open Command Palette (`ctrl+shift+P`)
 3. Run "CSharply: Organize C# File"
 
-### Organize Workspace Folder
-1. Open a workspace/folder containing C# files
-2. Open Command Palette (`ctrl+shift+P`)
-3. Run "CSharply: Organize all C# files in workspace folders"
-
-Note: Add a key binding (`ctrl+k ctrl+s`) to these commands as a shortcut.
+Note: Add a key binding (`ctrl+k ctrl+s`) to use as a shortcut.
 
 ## Commands
 
