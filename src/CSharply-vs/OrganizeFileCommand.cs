@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using Microsoft;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
@@ -29,6 +30,7 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
             Placements = [CommandPlacement.KnownPlacements.ExtensionsMenu],
         };
 
+    [SupportedOSPlatform("windows8.0")]
     public override async Task ExecuteCommandAsync(
         IClientContext context,
         CancellationToken cancellationToken
@@ -66,6 +68,7 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
     }
 
     /// <inheritdoc />
+    [SupportedOSPlatform("windows8.0")]
     public override Task InitializeAsync(CancellationToken cancellationToken)
     {
         // Use InitializeAsync for any one-time setup or initialization.
