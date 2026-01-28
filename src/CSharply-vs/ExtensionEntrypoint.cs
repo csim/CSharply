@@ -16,9 +16,9 @@ internal class ExtensionEntrypoint : Extension
             Metadata = new(
                 id: "CSharply.dce3961f-e68e-4f14-9097-1a6b2e4e1ba5",
                 version: ExtensionAssemblyVersion,
-                publisherName: "Publisher name",
-                displayName: "CSharply",
-                description: "Extension description"
+                publisherName: "Clint Simon",
+                displayName: "CSharply for Visual Studio",
+                description: "Organize C# files using the CSharply dotnet tool"
             ),
         };
 
@@ -42,10 +42,7 @@ internal class ExtensionEntrypoint : Extension
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            CSharplyAdapter.Instance.Dispose();
-        }
+        CSharplyAdapter.Instance.Dispose();
 
         base.Dispose(disposing);
     }

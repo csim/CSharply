@@ -5,6 +5,7 @@
 		<Nullable>enable</Nullable>
 		<RunCodeAnalysis>false</RunCodeAnalysis>
 		<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
