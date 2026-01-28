@@ -207,7 +207,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore ${{ env.SOLUTION }}
+        run: dotnet restore src/CSharply-vs/CSharply.csproj
 
       - name: Build Visual Studio extension
         run: |
