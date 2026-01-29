@@ -22,7 +22,7 @@ To manually install run: `dotnet tool install csharply --global`
 2. Open Command Palette (`ctrl+shift+P`)
 3. Run "CSharply: Organize C# File"
 
-Note: Add a key binding (`ctrl+k ctrl+s`) to use as a shortcut.
+Default key binding is: (`ctrl+e ctrl+f`)
 
 ## Commands
 
