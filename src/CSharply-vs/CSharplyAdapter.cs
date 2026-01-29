@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 
 namespace CSharply;
 
+public readonly record struct OrganizeResult(string OrganizedContents, string Status);
+
 public sealed class CSharplyAdapter : IDisposable
 {
     private const int _defaultPort = 8249;
@@ -59,7 +61,7 @@ public sealed class CSharplyAdapter : IDisposable
         Execute("dotnet", "tool install -g CSharply");
     }
 
-    public async Task<string?> OrganizeFileAsync(string fileContents)
+    public async Task<OrganizeResult> OrganizeFileAsync(string fileContents)
     {
         using StringContent content = new(fileContents, Encoding.UTF8, "text/plain");
 
@@ -68,14 +70,22 @@ public sealed class CSharplyAdapter : IDisposable
             content
         );
 
+        string status = string.Empty;
+        if (response.Headers.TryGetValues("x-outcome", out IEnumerable<string>? values))
+        {
+            status = values.FirstOrDefault() ?? string.Empty;
+        }
+
         if (!response.IsSuccessStatusCode)
         {
-            return null;
+            return new OrganizeResult(string.Empty, $"Error: {response.StatusCode}");
             //string error = await response.Content.ReadAsStringAsync();
             //throw new Exception($"CSharply organize failed: {error}");
         }
 
-        return await response.Content.ReadAsStringAsync();
+        string? organizedContents = await response.Content.ReadAsStringAsync();
+
+        return new OrganizeResult(organizedContents, status);
     }
 
     public void StartServer()

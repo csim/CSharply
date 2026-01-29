@@ -18,7 +18,7 @@ namespace CSharply;
 [VisualStudioContribution]
 public class OrganizeFileCommand(TraceSource traceSource) : Command
 {
-    //private readonly TraceSource _logger = Requires.NotNull(traceSource, nameof(traceSource));
+    private readonly TraceSource _logger = Requires.NotNull(traceSource, nameof(traceSource));
 
     /// <inheritdoc />
     public override CommandConfiguration CommandConfiguration =>
@@ -43,6 +43,7 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
 
         // Save the current line number
         int caretOffset = textView.Selection.InsertionPosition.Offset;
+        string filePath = textView.Document.Uri.LocalPath;
 
         // Get the current document content
         string fileContents = textView.Document.Text.CopyToString();
@@ -50,11 +51,22 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
             return;
 
         // Calculate line number from offset
-        int caretLine = fileContents[..Math.Min(caretOffset, fileContents.Length)].Count(c => c == '\n');
+        int caretLine = fileContents[..Math.Min(caretOffset, fileContents.Length)]
+            .Count(c => c == '\n');
 
         // Call the CSharply server to organize
-        string? organizedFileContents = await CSharplyAdapter.Instance.OrganizeFileAsync(fileContents);
-        if (organizedFileContents is null || fileContents == organizedFileContents)
+        OrganizeResult result = await CSharplyAdapter.Instance.OrganizeFileAsync(fileContents);
+        string? organizedFileContents = result.OrganizedContents;
+
+        // Write status to the VisualStudio.Extensibility Output window pane
+        _logger.TraceInformation($"{result.Status,30}: {filePath}");
+
+        // Write status as a notification (always visible)
+        await Extensibility
+            .Shell()
+            .ShowPromptAsync($"{result.Status}: {filePath}", PromptOptions.OK, cancellationToken);
+
+        if (string.IsNullOrEmpty(organizedFileContents) || fileContents == organizedFileContents)
             return;
 
         // Replace the entire document content
@@ -81,7 +93,9 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
                         lineStartOffset = nextNewline + 1;
                     }
                     TextPosition position = new(document, lineStartOffset);
-                    textView.AsEditable(batch).SetSelections([new Selection(new TextRange(position, position))]);
+                    textView
+                        .AsEditable(batch)
+                        .SetSelections([new Selection(new TextRange(position, position))]);
                 },
                 cancellationToken
             );
