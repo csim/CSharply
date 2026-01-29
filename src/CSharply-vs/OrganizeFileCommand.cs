@@ -30,6 +30,7 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
             // displayName, is set above. DisplayName is localized and references an entry in .vsextension\string-resources.json.
             Icon = new(ImageMoniker.KnownValues.Extension, IconSettings.IconAndText),
             Placements = [CommandPlacement.KnownPlacements.ExtensionsMenu],
+            Shortcuts = [new CommandShortcutConfiguration(ModifierKey.Control, Key.E, ModifierKey.Control, Key.F)],
         };
 
     [SupportedOSPlatform("windows8.0")]
