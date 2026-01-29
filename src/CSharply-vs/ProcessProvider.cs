@@ -144,7 +144,6 @@ public sealed class ProcessProvider : IDisposable
 
         if (_serverProcess is not null && !_serverProcess.HasExited)
         {
-            _logger.Debug("CSharply server already running");
             return;
         }
 
