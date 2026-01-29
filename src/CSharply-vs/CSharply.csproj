@@ -6,6 +6,7 @@
 		<RunCodeAnalysis>false</RunCodeAnalysis>
 		<EnableNETAnalyzers>true</EnableNETAnalyzers>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<DefineConstants>$(DefineConstants);VSEXTPREVIEW_OUTPUTWINDOW</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>

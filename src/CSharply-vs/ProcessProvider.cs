@@ -1,39 +1,54 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace CSharply;
 
 public readonly record struct OrganizeResult(string OrganizedContents, string Outcome);
 
-public sealed class CSharplyAdapter : IDisposable
+public sealed class ProcessProvider : IDisposable
 {
-    private const int _defaultPort = 8249;
-    private bool _disposed;
+    private const int DefaultPort = 8249;
+    private const uint JobObjectLimitKillOnJobClose = 0x2000;
+
+    private static ProcessProvider? _instance;
     private readonly HttpClient _httpClient = new();
+    private readonly Logger _logger;
+
+    private bool _disposed;
     private bool _isInstalled;
-    private const uint _jOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
     private IntPtr _jobHandle;
     private int _serverPort;
     private Process? _serverProcess;
 
-    public static CSharplyAdapter Instance { get; } = new CSharplyAdapter();
+    private ProcessProvider(Logger logger)
+    {
+        _logger = logger;
+    }
+
+    public static ProcessProvider GetInstance()
+    {
+        return _instance ??= new ProcessProvider(Logger.Instance);
+    }
+
+    public static async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        _instance = new ProcessProvider(Logger.Instance);
+        Logger.Instance.Info("CSharply process provider initialized");
+
+        await Task.CompletedTask;
+    }
 
     public void Dispose()
     {
         if (_disposed)
             return;
 
-        StopServer();
+        KillRunningProcesses();
 
         if (_jobHandle != IntPtr.Zero)
         {
@@ -46,56 +61,95 @@ public sealed class CSharplyAdapter : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public void EnsureInstalled()
+    public void KillRunningProcesses()
     {
-        if (_isInstalled)
-            return;
+        StopServer();
+    }
 
-        ExecuteResult checkResult = Execute("csharply", "--version");
-        if (checkResult.ExitCode == 0)
-        {
-            _isInstalled = true;
-            return;
-        }
-
-        Execute("dotnet", "tool install -g CSharply");
+    public bool HasWarmedProcessFor(string filePath)
+    {
+        // Check if the server process is running
+        return _serverProcess is not null && !_serverProcess.HasExited;
     }
 
     public async Task<OrganizeResult> OrganizeFileAsync(string fileContents)
     {
+        await EnsureStartedAsync();
+
         using StringContent content = new(fileContents, Encoding.UTF8, "text/plain");
 
-        HttpResponseMessage response = await _httpClient.PostAsync(
-            new Uri($"http://localhost:{_serverPort}/organize"),
-            content
-        );
-
-        string status = string.Empty;
-        if (response.Headers.TryGetValues("x-outcome", out IEnumerable<string>? values))
+        try
         {
-            status = values.FirstOrDefault() ?? string.Empty;
-        }
+            HttpResponseMessage response = await _httpClient.PostAsync(
+                new Uri($"http://localhost:{_serverPort}/organize"),
+                content
+            );
 
-        if (!response.IsSuccessStatusCode)
+            string status = string.Empty;
+            if (response.Headers.TryGetValues("x-outcome", out IEnumerable<string>? values))
+            {
+                status = values.FirstOrDefault() ?? string.Empty;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.Warn($"CSharply server returned error: {response.StatusCode}");
+                return new OrganizeResult(string.Empty, $"Error: {response.StatusCode}");
+            }
+
+            string? organizedContents = await response.Content.ReadAsStringAsync();
+
+            return new OrganizeResult(organizedContents, status);
+        }
+        catch (Exception ex)
         {
-            return new OrganizeResult(string.Empty, $"Error: {response.StatusCode}");
-            //string error = await response.Content.ReadAsStringAsync();
-            //throw new Exception($"CSharply organize failed: {error}");
+            _logger.Error(ex);
+            return new OrganizeResult(string.Empty, $"Error: {ex.Message}");
         }
-
-        string? organizedContents = await response.Content.ReadAsStringAsync();
-
-        return new OrganizeResult(organizedContents, status);
     }
 
-    public void StartServer()
+    private async Task EnsureInstalledAsync()
     {
-        EnsureInstalled();
-
-        if (_serverProcess is not null && !_serverProcess.HasExited)
+        if (_isInstalled)
             return;
 
-        _serverPort = FindAvailablePort(_defaultPort);
+        _logger.Info("Checking if CSharply is installed...");
+        ExecuteResult checkResult = Execute("csharply", "--version");
+        if (checkResult.ExitCode == 0)
+        {
+            _logger.Info($"CSharply version: {checkResult.Output.Trim()}");
+            _isInstalled = true;
+            return;
+        }
+
+        _logger.Info("CSharply not found, installing globally...");
+        ExecuteResult installResult = Execute("dotnet", "tool install -g CSharply");
+        if (installResult.ExitCode != 0)
+        {
+            _logger.Error($"Failed to install CSharply: {installResult.Error}");
+            throw new InvalidOperationException(
+                $"Failed to install CSharply: {installResult.Error}"
+            );
+        }
+
+        _logger.Info("CSharply installed successfully");
+        _isInstalled = true;
+
+        await Task.CompletedTask;
+    }
+
+    private async Task EnsureStartedAsync()
+    {
+        EnsureInstalledAsync();
+
+        if (_serverProcess is not null && !_serverProcess.HasExited)
+        {
+            _logger.Debug("CSharply server already running");
+            return;
+        }
+
+        _serverPort = FindAvailablePort(DefaultPort);
+        _logger.Info($"Starting CSharply server on port {_serverPort}...");
 
         _serverProcess = new Process
         {
@@ -112,12 +166,18 @@ public sealed class CSharplyAdapter : IDisposable
 
         _serverProcess.Start();
         AssignProcessToJobObject(_serverProcess);
+
+        _logger.Info("CSharply server started");
+
+        await Task.CompletedTask;
     }
 
-    public void StopServer()
+    private void StopServer()
     {
         if (_serverProcess is null || _serverProcess.HasExited)
             return;
+
+        _logger.Debug("Stopping CSharply server...");
 
         try
         {
@@ -133,7 +193,11 @@ public sealed class CSharplyAdapter : IDisposable
             _serverProcess.Dispose();
             _serverProcess = null;
         }
+
+        _logger.Debug("CSharply server stopped");
     }
+
+    #region Process Helpers
 
     private void AssignProcessToJobObject(Process process)
     {
@@ -150,7 +214,7 @@ public sealed class CSharplyAdapter : IDisposable
             {
                 BasicLimitInformation = new JOBOBJECT_BASIC_LIMIT_INFORMATION
                 {
-                    LimitFlags = _jOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+                    LimitFlags = JobObjectLimitKillOnJobClose,
                 },
             };
 
@@ -163,21 +227,14 @@ public sealed class CSharplyAdapter : IDisposable
                     length
                 )
             )
+            {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
         }
 
         if (!AssignProcessToJobObject(_jobHandle, process.Handle))
             throw new Win32Exception(Marshal.GetLastWin32Error());
     }
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr hObject);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string? lpName);
 
     private static ExecuteResult Execute(
         string fileName,
@@ -201,13 +258,13 @@ public sealed class CSharplyAdapter : IDisposable
         StringBuilder outputBuilder = new();
         StringBuilder errorBuilder = new();
 
-        process.OutputDataReceived += (sender, e) =>
+        process.OutputDataReceived += (_, e) =>
         {
             if (e.Data is not null)
                 outputBuilder.AppendLine(e.Data);
         };
 
-        process.ErrorDataReceived += (sender, e) =>
+        process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data is not null)
                 errorBuilder.AppendLine(e.Data);
@@ -223,7 +280,6 @@ public sealed class CSharplyAdapter : IDisposable
             throw new TimeoutException($"Process '{fileName}' timed out after {timeoutMs}ms");
         }
 
-        // Ensure async output reading completes
         process.WaitForExit();
 
         return new ExecuteResult(
@@ -261,6 +317,19 @@ public sealed class CSharplyAdapter : IDisposable
         }
     }
 
+    #endregion
+
+    #region Native Methods
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateJobObject(IntPtr lpJobAttributes, string? lpName);
+
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetInformationJobObject(
         IntPtr hJob,
@@ -269,10 +338,9 @@ public sealed class CSharplyAdapter : IDisposable
         int cbJobObjectInfoLength
     );
 
-    ~CSharplyAdapter()
-    {
-        Dispose();
-    }
+    #endregion
+
+    #region Native Types
 
     [StructLayout(LayoutKind.Sequential)]
     private struct IO_COUNTERS
@@ -313,6 +381,13 @@ public sealed class CSharplyAdapter : IDisposable
     private enum JobObjectInfoType
     {
         ExtendedLimitInformation = 9,
+    }
+
+    #endregion
+
+    ~ProcessProvider()
+    {
+        Dispose();
     }
 }
 
