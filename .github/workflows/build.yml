@@ -211,7 +211,7 @@ jobs:
 
       - name: Build Visual Studio extension
         run: |
-          dotnet build src/CSharply-vs/CSharply-vs.csproj `
+          dotnet build src/CSharply-vs/CSharply.csproj `
             --configuration ${{ env.BUILD_CONFIG }} `
             --no-restore `
             -p:Version=${{ needs.version.outputs.version }}${{ needs.version.outputs.suffix }} `
