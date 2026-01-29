@@ -140,7 +140,7 @@ public sealed class ProcessProvider : IDisposable
 
     private async Task EnsureStartedAsync()
     {
-        EnsureInstalledAsync();
+        await EnsureInstalledAsync();
 
         if (_serverProcess is not null && !_serverProcess.HasExited)
         {
