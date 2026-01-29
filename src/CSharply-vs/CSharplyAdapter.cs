@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace CSharply;
 
-public readonly record struct OrganizeResult(string OrganizedContents, string Status);
+public readonly record struct OrganizeResult(string OrganizedContents, string Outcome);
 
 public sealed class CSharplyAdapter : IDisposable
 {

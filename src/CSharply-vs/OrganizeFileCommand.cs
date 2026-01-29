@@ -1,8 +1,10 @@
+#pragma warning disable VSEXTPREVIEW_OUTPUTWINDOW // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Commands;
+using Microsoft.VisualStudio.Extensibility.Documents;
 using Microsoft.VisualStudio.Extensibility.Editor;
 using Microsoft.VisualStudio.Extensibility.Shell;
 
@@ -55,16 +57,24 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
             .Count(c => c == '\n');
 
         // Call the CSharply server to organize
+        Stopwatch stopwatch = Stopwatch.StartNew();
         OrganizeResult result = await CSharplyAdapter.Instance.OrganizeFileAsync(fileContents);
+        stopwatch.Stop();
         string? organizedFileContents = result.OrganizedContents;
 
-        // Write status to the VisualStudio.Extensibility Output window pane
-        _logger.TraceInformation($"{result.Status,30}: {filePath}");
+        _outputChannel?.Writer.WriteLine($"{filePath}");
+        _outputChannel?.Writer.WriteLine(
+            $"  outcome: {result.Outcome, -24} {stopwatch.ElapsedMilliseconds, 5:N0}ms"
+        );
 
-        // Write status as a notification (always visible)
-        await Extensibility
-            .Shell()
-            .ShowPromptAsync($"{result.Status}: {filePath}", PromptOptions.OK, cancellationToken);
+        string? action =
+            string.IsNullOrEmpty(organizedFileContents) ? "empty content"
+            : fileContents == organizedFileContents ? "no change"
+            : null;
+        if (action != null)
+        {
+            _outputChannel?.Writer.WriteLine($"   action: {action}");
+        }
 
         if (string.IsNullOrEmpty(organizedFileContents) || fileContents == organizedFileContents)
             return;
@@ -101,11 +111,18 @@ public class OrganizeFileCommand(TraceSource traceSource) : Command
             );
     }
 
+    private OutputChannel? _outputChannel;
+
     /// <inheritdoc />
     [SupportedOSPlatform("windows8.0")]
-    public override Task InitializeAsync(CancellationToken cancellationToken)
+    public override async Task InitializeAsync(CancellationToken cancellationToken)
     {
+        _outputChannel = await Extensibility
+            .Views()
+            .Output.CreateOutputChannelAsync("CSharply", cancellationToken);
+
         // Use InitializeAsync for any one-time setup or initialization.
-        return base.InitializeAsync(cancellationToken);
+        await base.InitializeAsync(cancellationToken);
     }
 }
+#pragma warning restore VSEXTPREVIEW_OUTPUTWINDOW // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
